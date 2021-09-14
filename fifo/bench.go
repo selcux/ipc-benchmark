@@ -15,7 +15,21 @@ type FifoBench struct {
 }
 
 func (fb *FifoBench) Latency() (int, error) {
-	panic("implement me!")
+	tmpDir, err := ioutil.TempDir("", "named-pipes")
+	if err != nil {
+		return 0, errors.Wrap(err, "could not create temp dir 'named-pipes'")
+	}
+	// Create named pipe
+	namedPipe := filepath.Join(tmpDir, "ping_pong")
+	syscall.Mkfifo(namedPipe, 0600)
+
+	fifo := NewFifo(namedPipe, fb.size, fb.count)
+	err = fifo.PingPong()
+	if err != nil {
+		return 0, err
+	}
+
+	return 0, nil
 }
 
 func (fb *FifoBench) Throughput() (int, error) {
