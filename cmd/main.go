@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/selcux/ipc-benchmark/report/render"
 	"log"
 
 	"github.com/selcux/ipc-benchmark/fifo"
@@ -15,14 +16,16 @@ func main() {
 
 	fmt.Println("----- FIFO -----")
 	fmt.Println(">> Throughput <<")
-	_, err := fifoBench.Throughput()
+	tResult, err := fifoBench.Throughput()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	fmt.Println(">> Latency <<")
-	_, err = fifoBench.Latency()
+	lResult, err := fifoBench.Latency()
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	render.Table(tResult, lResult)
 }
