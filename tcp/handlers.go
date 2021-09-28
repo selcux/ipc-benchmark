@@ -123,7 +123,7 @@ func receive(conn net.Conn, maxSize int) ([]byte, error) {
 		n, err := conn.Read(buf)
 		if err != nil {
 			if err != io.EOF {
-				return nil, errors.Wrap(err, "unable to read data")
+				return nil, errors.Wrap(err, "unable to receive data")
 			}
 
 			break
