@@ -2,7 +2,6 @@ package tcp
 
 import (
 	"io"
-	"log"
 	"net"
 
 	"github.com/pkg/errors"
@@ -11,50 +10,101 @@ import (
 
 const bufSize = 1024
 
-func serverHandler(args ServerArgs) {
+func serverLatencyHandler(args ServerArgs) {
 	for i := 0; i < args.rotationCount; i++ {
-		log.Println("Server receiving data")
 		data, err := receive(args.conn, args.maxDataSize)
 		if err != nil {
-			panic(errors.Wrap(err, "could not receive data"))
+			go func() {
+				args.errCh <- errors.Wrap(err, "could not receive data")
+			}()
+			return
 		}
 
-		log.Println("Server sending back data")
 		_, err = args.conn.Write(data)
 		if err != nil {
-			panic(errors.Wrap(err, "could not send data"))
+			go func() {
+				args.errCh <- errors.Wrap(err, "could not send data")
+			}()
+			return
 		}
+	}
+
+	close(args.errCh)
+}
+
+func clientLatencyHandler(args ClientArgs) {
+	for i := 0; i < args.rotationCount; i++ {
+		data, err := util.GenRandomBytes(args.maxDataSize)
+		if err != nil {
+			go func() {
+				args.dataCh <- ResultArgs{err: err}
+			}()
+			return
+		}
+
+		_, err = args.conn.Write(data)
+		if err != nil {
+			go func() {
+				args.dataCh <- ResultArgs{
+					err: errors.Wrap(err, "could not send data"),
+				}
+			}()
+			return
+		}
+
+		recvData, err := receive(args.conn, args.maxDataSize)
+		if err != nil {
+			go func() {
+				args.dataCh <- ResultArgs{
+					err: errors.Wrap(err, "could not receive data"),
+				}
+			}()
+			return
+		}
+
+		go func() {
+			args.dataCh <- ResultArgs{
+				messageLen: len(recvData),
+				err:        nil,
+			}
+		}()
 	}
 }
 
-func clientHandler(args ClientArgs) {
-	for i := 0; i < args.rotationCount; i++ {
-		log.Println("Generating random data...")
-		data, err := util.GenRandomBytes(args.maxDataSize)
-		if err != nil {
-			args.dataCh <- ResultArgs{err: err}
-			return
-		}
+func serverThroughputHandler(args ServerArgs) {
+	data, err := util.GenRandomBytes(args.maxDataSize)
+	if err != nil {
+		go func() {
+			args.errCh <- errors.Wrap(err, "unable to create random byte array")
+		}()
+		return
+	}
 
-		log.Println("Client sending data")
+	for i := 0; i < args.rotationCount; i++ {
 		_, err = args.conn.Write(data)
 		if err != nil {
-			args.dataCh <- ResultArgs{
-				err: errors.Wrap(err, "could not send data"),
-			}
+			go func() {
+				args.errCh <- errors.Wrap(err, "could not send data")
+			}()
 			return
 		}
+	}
 
-		log.Println("Client receiving data")
+	close(args.errCh)
+}
+
+func clientThroughputHandler(args ClientArgs) {
+	for i := 0; i < args.rotationCount; i++ {
 		recvData, err := receive(args.conn, args.maxDataSize)
 		if err != nil {
-			args.dataCh <- ResultArgs{
-				err: errors.Wrap(err, "could not receive data"),
-			}
+			go func() {
+				args.dataCh <- ResultArgs{
+					err: errors.Wrap(err, "could not receive data"),
+				}
+			}()
 			return
 		}
 
-		log.Println("Client data received")
 		go func() {
 			args.dataCh <- ResultArgs{
 				messageLen: len(recvData),

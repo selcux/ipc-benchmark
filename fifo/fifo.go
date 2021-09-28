@@ -2,7 +2,6 @@ package fifo
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/selcux/ipc-benchmark/benchmark"
 	"io"
 	"os"
@@ -19,52 +18,35 @@ type Fifo struct {
 	count     int
 }
 
-func (f *Fifo) Produce() (*benchmark.RunResult, error) {
-	fmt.Println("Opening named pipe for writing")
+func (f *Fifo) Produce() error {
 	file, err := os.OpenFile(f.namedPipe, os.O_RDWR, 0600)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not open file %s", f.namedPipe)
+		return errors.Wrapf(err, "could not open file %s", f.namedPipe)
 	}
 	defer file.Close()
-	fmt.Println("Writing")
 
-	totalBytes := 0
-	successMsg := 0
+	data, err := util.GenRandomBytes(f.size)
+	if err != nil {
+		return errors.Wrap(err, "unable to create random byte array")
+	}
+
 	for i := 0; i < f.count; i++ {
-		data, err := util.GenRandomBytes(f.size)
+		_, err := f.send(file, data)
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to create random byte array")
-		}
-
-		scount, err := f.send(file, data)
-		/*
-			if err != nil {
-				return nil, errors.Wrap(err, "could not send data")
-			}
-		*/
-		if err == nil {
-			successMsg++
-			totalBytes += scount
+			return errors.Wrap(err, "could not send data")
 		}
 	}
 
-	return &benchmark.RunResult{
-		Messages:    successMsg,
-		SuccessRate: float32(successMsg) / float32(f.count),
-		Size:        totalBytes,
-	}, nil
+	return nil
 }
 
 func (f *Fifo) Consume() (*benchmark.RunResult, error) {
 	// Open named pipe for reading
-	fmt.Println("Opening named pipe for reading")
 	file, err := os.OpenFile(f.namedPipe, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open file %s", f.namedPipe)
 	}
 	defer file.Close()
-	fmt.Println("Reading")
-	fmt.Println("Waiting for someone to write something")
 
 	successMsg := 0
 	totalBytes := 0

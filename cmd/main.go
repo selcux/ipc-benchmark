@@ -1,31 +1,43 @@
 package main
 
 import (
-	"fmt"
-	"github.com/selcux/ipc-benchmark/report/render"
 	"log"
+
+	"github.com/selcux/ipc-benchmark/report/render"
+	"github.com/selcux/ipc-benchmark/tcp"
 
 	"github.com/selcux/ipc-benchmark/fifo"
 	"github.com/selcux/ipc-benchmark/util"
 )
-
+/*
+func init() {
+	log.SetOutput(ioutil.Discard)
+}
+*/
 func main() {
 	args := util.NewArgs()
 
 	fifoBench := fifo.NewFifoBench(args.Size, args.Count)
-
-	fmt.Println("----- FIFO -----")
-	fmt.Println(">> Throughput <<")
-	tResult, err := fifoBench.Throughput()
+	fifoResultT, err := fifoBench.Throughput()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	fmt.Println(">> Latency <<")
-	lResult, err := fifoBench.Latency()
+	fifoResultL, err := fifoBench.Latency()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	render.Table(tResult, lResult)
+	tcpBench := tcp.NewTcpBench(args.Size, args.Count)
+	tcpResultL, err := tcpBench.Latency()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	tcpResultT, err := tcpBench.Throughput()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	render.Table(fifoResultT, fifoResultL, tcpResultT, tcpResultL)
 }

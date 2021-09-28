@@ -1,22 +1,21 @@
 package tcp
 
 import (
-	"log"
 	"net"
 
 	"github.com/pkg/errors"
 )
-
-type ResultArgs struct {
-	messageLen int
-	err        error
-}
 
 type ClientArgs struct {
 	conn          net.Conn
 	maxDataSize   int
 	rotationCount int
 	dataCh        chan ResultArgs
+}
+
+type ResultArgs struct {
+	messageLen int
+	err        error
 }
 
 type Client struct {
@@ -29,11 +28,12 @@ func (c *Client) SetHandler(f func(args ClientArgs)) {
 }
 
 func (c *Client) Connect(address string) error {
-	log.Printf("Dialing... %s", address)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		return errors.Wrapf(err, "could not connect to %s", address)
 	}
+
+	defer func() { _ = conn.Close() }()
 
 	if c.handler == nil {
 		return nil
@@ -43,6 +43,10 @@ func (c *Client) Connect(address string) error {
 	c.handler(c.args)
 
 	return nil
+}
+
+func (c *Client) DataCh() chan ResultArgs {
+	return c.args.dataCh
 }
 
 func NewClient(args ClientArgs) *Client {

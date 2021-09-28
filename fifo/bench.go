@@ -1,12 +1,12 @@
 package fifo
 
 import (
-	"fmt"
-	"github.com/selcux/ipc-benchmark/benchmark"
 	"io/ioutil"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/selcux/ipc-benchmark/benchmark"
 
 	"github.com/pkg/errors"
 )
@@ -27,8 +27,8 @@ func (fb *Bench) Latency() (*benchmark.MeasuredResult, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not make fifo of %s", namedPipe)
 	}
-
 	fifo := NewFifo(namedPipe, fb.size, fb.count)
+
 	start := time.Now()
 	runResult, err := fifo.PingPong()
 	if err != nil {
@@ -39,7 +39,8 @@ func (fb *Bench) Latency() (*benchmark.MeasuredResult, error) {
 	return &benchmark.MeasuredResult{
 		RunResult: runResult,
 		Duration:  duration,
-		Type: benchmark.Lat,
+		Type:      benchmark.Lat,
+		Ipc:       benchmark.Fifo,
 	}, nil
 }
 
@@ -56,24 +57,20 @@ func (fb *Bench) Throughput() (*benchmark.MeasuredResult, error) {
 	}
 
 	fifo := NewFifo(namedPipe, fb.size, fb.count)
-	resultCh := make(chan *benchmark.RunResult)
 	errCh := make(chan error)
 
 	start := time.Now()
-	go func(ff *Fifo, count chan *benchmark.RunResult, e chan error) {
-		c, err := ff.Produce()
+	go func(ff *Fifo, e chan error) {
+		err := ff.Produce()
 		if err != nil {
 			e <- err
-			close(count)
 			return
 		}
 
-		count <- c
 		close(e)
-	}(fifo, resultCh, errCh)
+	}(fifo, errCh)
 
 	cResult, cErr := fifo.Consume()
-	pResult := <-resultCh
 	pErr := <-errCh
 
 	if pErr != nil {
@@ -84,15 +81,17 @@ func (fb *Bench) Throughput() (*benchmark.MeasuredResult, error) {
 		return nil, cErr
 	}
 
-	fmt.Printf("Total produced bytes: %+v\n", pResult)
-	fmt.Printf("Total consumed bytes: %+v\n", cResult)
-
 	duration := time.Since(start)
 
 	return &benchmark.MeasuredResult{
-		RunResult: cResult,
-		Duration:  duration,
-		Type: benchmark.Thr,
+		RunResult: &benchmark.RunResult{
+			Messages:    int(float64(cResult.Messages) / duration.Seconds()),
+			SuccessRate: cResult.SuccessRate,
+			Size:        cResult.Size,
+		},
+		Duration: time.Second,
+		Type:     benchmark.Thr,
+		Ipc:      benchmark.Fifo,
 	}, nil
 }
 

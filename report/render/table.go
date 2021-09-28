@@ -10,14 +10,17 @@ import (
 
 func Table(results ...*benchmark.MeasuredResult) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Type", "Transferred Messages", "Success Rate (%)", "Duration (sec)"})
+	table.SetAutoMergeCellsByColumnIndex([]int{0})
+	//table.SetRowLine(true)
+	table.SetHeader([]string{"IPC", "Type", "Transferred Messages", "Duration", "Success Rate"})
 
 	for _, r := range results {
 		table.Append([]string{
+			fmt.Sprint(r.Ipc),
 			fmt.Sprint(r.Type),
 			fmt.Sprintf("%d", r.Messages),
-			fmt.Sprintf("%.2f", r.SuccessRate*100.0),
 			fmt.Sprintf("%s", r.Duration),
+			fmt.Sprintf("%.2f", r.SuccessRate*100.0),
 		})
 	}
 

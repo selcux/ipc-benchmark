@@ -1,6 +1,6 @@
 package benchmark
 
 type Throughput interface {
-	Produce() (*RunResult, error)
+	Produce() error
 	Consume() (*RunResult, error)
 }
